@@ -51,12 +51,14 @@
   "dependencies": {
     "@loopback/authentication": "^12.0.12",
     "@loopback/authentication-jwt": "^0.16.12",
+    "@loopback/authorization": "^0.16.11",
     "@loopback/boot": "^8.0.11",
     "@loopback/core": "^7.0.10",
     "@loopback/repository": "^8.0.10",
     "@loopback/rest": "^15.0.11",
     "@loopback/rest-explorer": "^8.0.11",
     "@loopback/service-proxy": "^8.0.10",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.1",
     "loopback-connector-mongodb": "^6.2.0",
     "tslib": "^2.0.0"

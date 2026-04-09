@@ -1,5 +1,14 @@
 import {BootMixin} from '@loopback/boot';
 import {ApplicationConfig} from '@loopback/core';
+import {AuthenticationComponent} from '@loopback/authentication';
+import {
+  AuthorizationComponent,
+  AuthorizationTags,
+} from '@loopback/authorization';
+import {
+  JWTAuthenticationComponent,
+  UserServiceBindings,
+} from '@loopback/authentication-jwt';
 import {
   RestExplorerBindings,
   RestExplorerComponent,
@@ -8,7 +17,11 @@ import {RepositoryMixin} from '@loopback/repository';
 import {RestApplication} from '@loopback/rest';
 import {ServiceMixin} from '@loopback/service-proxy';
 import path from 'path';
+import {MongoDbDataSource} from './datasources';
+import {AppblogBindings} from './keys';
+import {AppblogAuthorizationProvider} from './providers';
 import {MySequence} from './sequence';
+import {AppblogUserService} from './services';
 
 export {ApplicationConfig};
 
@@ -29,6 +42,16 @@ export class AppblogApplication extends BootMixin(
       path: '/explorer',
     });
     this.component(RestExplorerComponent);
+
+    // Mount authentication system and JWT implementation.
+    this.component(AuthenticationComponent);
+    this.component(AuthorizationComponent);
+    this.component(JWTAuthenticationComponent);
+    this.dataSource(MongoDbDataSource, UserServiceBindings.DATASOURCE_NAME);
+    this.bind(AppblogBindings.USER_SERVICE).toClass(AppblogUserService);
+    this.bind('authorizationProviders.appblog')
+      .toProvider(AppblogAuthorizationProvider)
+      .tag(AuthorizationTags.AUTHORIZER);
 
     this.projectRoot = __dirname;
     // Customize @loopback/boot Booter Conventions here

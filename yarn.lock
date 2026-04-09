@@ -318,6 +318,15 @@
     lodash "^4.17.23"
     tslib "^2.8.1"
 
+"@loopback/authorization@^0.16.11":
+  version "0.16.11"
+  resolved "https://registry.npmjs.org/@loopback/authorization/-/authorization-0.16.11.tgz"
+  integrity sha512-a3lbkIQMTZXMIm3VhbryDjR5aZvd3IqCgi6nyBWFCvTqKw2ZxG2zHbOt3hTVoed3RN5SnC9g0wz8le+1GxdEPQ==
+  dependencies:
+    "@loopback/security" "^0.12.11"
+    debug "^4.4.3"
+    tslib "^2.8.1"
+
 "@loopback/boot@^8.0.11":
   version "8.0.11"
   resolved "https://registry.npmjs.org/@loopback/boot/-/boot-8.0.11.tgz"
