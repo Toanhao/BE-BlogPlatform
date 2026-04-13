@@ -7,6 +7,7 @@ import {
 } from '@loopback/authorization';
 import {
   JWTAuthenticationComponent,
+  TokenServiceBindings,
   UserServiceBindings,
 } from '@loopback/authentication-jwt';
 import {
@@ -47,6 +48,12 @@ export class AppblogApplication extends BootMixin(
     this.component(AuthenticationComponent);
     this.component(AuthorizationComponent);
     this.component(JWTAuthenticationComponent);
+    this.bind(TokenServiceBindings.TOKEN_SECRET).to(
+      process.env.JWT_SECRET ?? 'change-me-in-env',
+    );
+    this.bind(TokenServiceBindings.TOKEN_EXPIRES_IN).to(
+      process.env.JWT_EXPIRES_IN ?? '3600',
+    );
     this.dataSource(MongoDbDataSource, UserServiceBindings.DATASOURCE_NAME);
     this.bind(AppblogBindings.USER_SERVICE).toClass(AppblogUserService);
     this.bind('authorizationProviders.appblog')

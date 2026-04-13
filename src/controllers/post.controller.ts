@@ -1,3 +1,6 @@
+import {authenticate} from '@loopback/authentication';
+import {AuthorizationMetadata, authorize} from '@loopback/authorization';
+import {inject} from '@loopback/core';
 import {
   Count,
   CountSchema,
@@ -6,29 +9,28 @@ import {
   repository,
   Where,
 } from '@loopback/repository';
-import {authorize, AuthorizationMetadata} from '@loopback/authorization';
-import {authenticate} from '@loopback/authentication';
-import {inject} from '@loopback/core';
 import {
-  post,
-  param,
+  del,
   get,
   getModelSchemaRef,
+  param,
   patch,
+  post,
   put,
-  del,
   requestBody,
   response,
 } from '@loopback/rest';
-import {securityId, SecurityBindings, UserProfile} from '@loopback/security';
+import {SecurityBindings, securityId, UserProfile} from '@loopback/security';
+import {CreatePostDto, PaginatedPostsDto} from '../dtos';
 import {Post} from '../models';
-import {PostRepository} from '../repositories';
-import {CreatePostDto} from '../dtos';
+import {CommentRepository, PostRepository} from '../repositories';
 
 export class PostController {
   constructor(
     @repository(PostRepository)
-    public postRepository : PostRepository,
+    public postRepository: PostRepository,
+    @repository(CommentRepository)
+    public commentRepository: CommentRepository,
     @inject(SecurityBindings.USER, {optional: true})
     private currentUserProfile: UserProfile,
   ) {}
@@ -50,8 +52,12 @@ export class PostController {
     postData: CreatePostDto,
   ): Promise<Post> {
     const currentUserId = String(this.currentUserProfile[securityId]);
+    const excerpt = postData.content.substring(0, 180) + 
+      (postData.content.length > 180 ? '...' : '');
+    
     return this.postRepository.create({
       ...postData,
+      excerpt,
       authorId: currentUserId,
       createdAt: postData.createdAt ?? new Date().toISOString(),
     });
@@ -62,10 +68,53 @@ export class PostController {
     description: 'Post model count',
     content: {'application/json': {schema: CountSchema}},
   })
-  async count(
-    @param.where(Post) where?: Where<Post>,
-  ): Promise<Count> {
+  async count(@param.where(Post) where?: Where<Post>): Promise<Count> {
     return this.postRepository.count(where);
+  }
+
+  @get('/posts/paginated')
+  @response(200, {
+    description: 'Paginated array of Post model instances with total count',
+    content: {
+      'application/json': {
+        schema: getModelSchemaRef(PaginatedPostsDto),
+      },
+    },
+  })
+  async findPaginated(
+    @param.query.number('skip', {description: 'Number of records to skip'})
+    skip: number = 0,
+    @param.query.number('limit', {description: 'Number of records to return'})
+    limit: number = 10,
+    @param.query.string('order', {description: 'Order by field, e.g., createdAt DESC'})
+    order: string = 'createdAt DESC',
+  ): Promise<PaginatedPostsDto> {
+    const [items, countResult] = await Promise.all([
+      this.postRepository.find({
+        skip,
+        limit,
+        order: [order as any],
+        fields: {
+          id: true,
+          title: true,
+          excerpt: true,
+          image: true,
+          createdAt: true,
+          authorId: true,
+        },
+        include: [
+          {
+            relation: 'author',
+            scope: {fields: {id: true, username: true}},
+          },
+        ],
+      }),
+      this.postRepository.count(),
+    ]);
+
+    const total = typeof countResult === 'number' ? countResult : countResult.count;
+
+    return {items, total};
   }
 
   @get('/posts')
@@ -80,10 +129,24 @@ export class PostController {
       },
     },
   })
-  async find(
-    @param.filter(Post) filter?: Filter<Post>,
-  ): Promise<Post[]> {
-    return this.postRepository.find(filter);
+  async find(@param.filter(Post) filter?: Filter<Post>): Promise<Post[]> {
+    return this.postRepository.find({
+      ...filter,
+      fields: {
+        id: true,
+        title: true,
+        excerpt: true,
+        image: true,
+        createdAt: true,
+        authorId: true,
+      },
+      include: [
+        {
+          relation: 'author',
+          scope: {fields: {id: true, username: true}},
+        },
+      ],
+    });
   }
 
   @get('/posts/{id}')
@@ -97,9 +160,34 @@ export class PostController {
   })
   async findById(
     @param.path.string('id') id: string,
-    @param.filter(Post, {exclude: 'where'}) filter?: FilterExcludingWhere<Post>
+    @param.filter(Post, {exclude: 'where'}) filter?: FilterExcludingWhere<Post>,
   ): Promise<Post> {
-    return this.postRepository.findById(id, filter);
+    return this.postRepository.findById(id, {
+      ...filter,
+      include: [
+        {
+          relation: 'author',
+          scope: {fields: {id: true, username: true}},
+        },
+        {
+          relation: 'comments',
+          scope: {
+            fields: {
+              id: true,
+              content: true,
+              postId: true,
+              authorId: true,
+            },
+            include: [
+              {
+                relation: 'author',
+                scope: {fields: {id: true, username: true}},
+              },
+            ],
+          },
+        },
+      ],
+    });
   }
 
   @authenticate('jwt')
@@ -148,8 +236,11 @@ export class PostController {
     postData: CreatePostDto,
   ): Promise<void> {
     const existingPost = await this.postRepository.findById(id);
+    const excerpt = postData.content.substring(0, 180) + 
+      (postData.content.length > 180 ? '...' : '');
 
     const replacement = Object.assign(existingPost, postData, {
+      excerpt,
       authorId: existingPost.authorId,
       createdAt: existingPost.createdAt,
     });
@@ -168,6 +259,7 @@ export class PostController {
     description: 'Post DELETE success',
   })
   async deleteById(@param.path.string('id') id: string): Promise<void> {
+    await this.commentRepository.deleteAll({postId: id});
     await this.postRepository.deleteById(id);
   }
 }

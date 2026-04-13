@@ -14,3 +14,16 @@ export class CreatePostDto {
   @property({type: 'date'})
   createdAt?: string;
 }
+
+@model()
+export class PaginatedPostsDto {
+  @property({
+    type: 'array',
+    itemType: 'object',
+    required: true,
+  })
+  items: object[];
+
+  @property({type: 'number', required: true})
+  total: number;
+}

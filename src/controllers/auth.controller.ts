@@ -14,9 +14,9 @@ import {SecurityBindings, UserProfile} from '@loopback/security';
 import {hash} from 'bcryptjs';
 import {
   LoginRequestDto,
+  LoginResponseDto,
   RegisterRequestDto,
   RegisterResponseDto,
-  TokenResponseDto,
 } from '../dtos';
 import {AppblogBindings} from '../keys';
 import {User} from '../models';
@@ -92,7 +92,7 @@ export class AuthController {
         description: 'Login success',
         content: {
           'application/json': {
-            schema: getModelSchemaRef(TokenResponseDto),
+            schema: getModelSchemaRef(LoginResponseDto),
           },
         },
       },
@@ -111,12 +111,20 @@ export class AuthController {
       },
     })
     credentials: LoginRequestDto,
-  ): Promise<TokenResponseDto> {
+  ): Promise<LoginResponseDto> {
     const user = await this.userService.verifyCredentials(credentials);
     const userProfile = this.userService.convertToUserProfile(user);
 
     const token = await this.tokenService.generateToken(userProfile);
-    return {token};
+    return {
+      token,
+      user: {
+        id: String(user.id),
+        name: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    };
   }
 
   @authenticate('jwt')

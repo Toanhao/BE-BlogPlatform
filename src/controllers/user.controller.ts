@@ -21,7 +21,7 @@ import {
 } from '@loopback/rest';
 import {hash} from 'bcryptjs';
 import {authenticate} from '@loopback/authentication';
-import {User} from '../models';
+import {Post, User} from '../models';
 import {UserRepository} from '../repositories';
 import {CreateUserDto} from '../dtos';
 
@@ -29,7 +29,7 @@ import {CreateUserDto} from '../dtos';
 export class UserController {
   constructor(
     @repository(UserRepository)
-    public userRepository : UserRepository,
+    public userRepository: UserRepository,
   ) {}
 
   @authorize({
@@ -73,9 +73,7 @@ export class UserController {
     description: 'User model count',
     content: {'application/json': {schema: CountSchema}},
   })
-  async count(
-    @param.where(User) where?: Where<User>,
-  ): Promise<Count> {
+  async count(@param.where(User) where?: Where<User>): Promise<Count> {
     return this.userRepository.count(where);
   }
 
@@ -94,12 +92,9 @@ export class UserController {
       },
     },
   })
-  async find(
-    @param.filter(User) filter?: Filter<User>,
-  ): Promise<User[]> {
+  async find(@param.filter(User) filter?: Filter<User>): Promise<User[]> {
     return this.userRepository.find(filter);
   }
-
 
   @get('/users/{id}')
   @authorize({
@@ -117,9 +112,36 @@ export class UserController {
   })
   async findById(
     @param.path.string('id') id: string,
-    @param.filter(User, {exclude: 'where'}) filter?: FilterExcludingWhere<User>
+    @param.filter(User, {exclude: 'where'}) filter?: FilterExcludingWhere<User>,
   ): Promise<User> {
     return this.userRepository.findById(id, filter);
+  }
+
+  @get('/users/{id}/posts')
+  @authorize({
+    allowedRoles: ['admin'],
+    owner: 'user',
+    ownerArgIndex: 0,
+  } as AuthorizationMetadata)
+  @response(200, {
+    description: 'Array of Post model instances owned by the user',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'array',
+          items: getModelSchemaRef(Post, {includeRelations: true}),
+        },
+      },
+    },
+  })
+  async findPostsByUserId(
+    @param.path.string('id') id: string,
+    @param.filter(Post) filter?: Filter<Post>,
+  ): Promise<Post[]> {
+    return this.userRepository.posts(id).find({
+      ...filter,
+      include: [{relation: 'author'}],
+    });
   }
 
   @patch('/users/{id}')

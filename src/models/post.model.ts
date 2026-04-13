@@ -22,6 +22,12 @@ export class Post extends Entity {
     required: true,
   })
   content: string;
+
+  @property({
+    type: 'string',
+  })
+  excerpt?: string;
+
   @property({
     type: 'date',
   })

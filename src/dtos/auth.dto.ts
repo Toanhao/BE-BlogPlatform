@@ -31,6 +31,30 @@ export class TokenResponseDto {
 }
 
 @model()
+export class UserProfileDto {
+  @property({type: 'string', required: true})
+  id: string;
+
+  @property({type: 'string', required: true})
+  name: string;
+
+  @property({type: 'string', required: true})
+  email: string;
+
+  @property({type: 'string', required: true})
+  role: string;
+}
+
+@model()
+export class LoginResponseDto {
+  @property({type: 'string', required: true})
+  token: string;
+
+  @property({type: UserProfileDto, required: true})
+  user: UserProfileDto;
+}
+
+@model()
 export class RegisterResponseDto {
   @property({type: 'string'})
   id?: string;
