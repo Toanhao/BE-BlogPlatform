@@ -22,7 +22,7 @@ import {MongoDbDataSource} from './datasources';
 import {AppblogBindings} from './keys';
 import {AppblogAuthorizationProvider} from './providers';
 import {MySequence} from './sequence';
-import {AppblogUserService} from './services';
+import {AppblogUserService, RedisService} from './services';
 
 export {ApplicationConfig};
 
@@ -49,13 +49,14 @@ export class AppblogApplication extends BootMixin(
     this.component(AuthorizationComponent);
     this.component(JWTAuthenticationComponent);
     this.bind(TokenServiceBindings.TOKEN_SECRET).to(
-      process.env.JWT_SECRET ?? 'change-me-in-env',
+      process.env.JWT_SECRET ?? 'my-secret-key',
     );
     this.bind(TokenServiceBindings.TOKEN_EXPIRES_IN).to(
       process.env.JWT_EXPIRES_IN ?? '3600',
     );
     this.dataSource(MongoDbDataSource, UserServiceBindings.DATASOURCE_NAME);
     this.bind(AppblogBindings.USER_SERVICE).toClass(AppblogUserService);
+    this.bind(AppblogBindings.REDIS_SERVICE).toClass(RedisService);
     this.bind('authorizationProviders.appblog')
       .toProvider(AppblogAuthorizationProvider)
       .tag(AuthorizationTags.AUTHORIZER);

@@ -22,8 +22,18 @@ import {
 } from '@loopback/rest';
 import {SecurityBindings, securityId, UserProfile} from '@loopback/security';
 import {CreatePostDto, PaginatedPostsDto} from '../dtos';
+import {AppblogBindings} from '../keys';
 import {Post} from '../models';
 import {CommentRepository, PostRepository} from '../repositories';
+import {RedisService} from '../services';
+
+const TTL_LIST = 120;
+const TTL_TOTAL = 120;
+const TTL_DETAIL = 1800;
+const KEY_TOTAL = 'posts:total';
+const KEY_LIST_PREFIX = 'posts:paginated:';
+const KEY_DETAIL_PREFIX = 'post:detail:';
+const KEY_MY_POSTS_PREFIX = 'posts:my:';
 
 export class PostController {
   constructor(
@@ -31,9 +41,54 @@ export class PostController {
     public postRepository: PostRepository,
     @repository(CommentRepository)
     public commentRepository: CommentRepository,
+    @inject(AppblogBindings.REDIS_SERVICE)
+    private redisService: RedisService,
     @inject(SecurityBindings.USER, {optional: true})
     private currentUserProfile: UserProfile,
   ) {}
+
+  private async invalidatePostListCache(): Promise<void> {
+    await Promise.all([
+      this.redisService.deleteByPattern(`${KEY_LIST_PREFIX}*`),
+      this.redisService.deleteByPattern(`${KEY_TOTAL}:*`),
+    ]);
+  }
+
+  private async invalidatePostDetailCache(postId: string): Promise<void> {
+    await this.redisService.deleteKey(`${KEY_DETAIL_PREFIX}${postId}`);
+  }
+
+  private async invalidateMyPostsCache(userId: string): Promise<void> {
+    await this.redisService.deleteKey(`${KEY_MY_POSTS_PREFIX}${userId}`);
+  }
+
+  private buildPostDetailQuery(filter?: FilterExcludingWhere<Post>) {
+    return {
+      ...filter,
+      include: [
+        {
+          relation: 'author',
+          scope: {fields: {username: true}},
+        },
+        {
+          relation: 'comments',
+          scope: {
+            fields: {
+              content: true,
+              postId: true,
+              authorId: true,
+            },
+            include: [
+              {
+                relation: 'author',
+                scope: {fields: {username: true}},
+              },
+            ],
+          },
+        },
+      ],
+    };
+  }
 
   @authenticate('jwt')
   @post('/posts')
@@ -52,15 +107,32 @@ export class PostController {
     postData: CreatePostDto,
   ): Promise<Post> {
     const currentUserId = String(this.currentUserProfile[securityId]);
-    const excerpt = postData.content.substring(0, 180) + 
+    const excerpt =
+      postData.content.substring(0, 180) +
       (postData.content.length > 180 ? '...' : '');
-    
-    return this.postRepository.create({
+
+    const createdPost = await this.postRepository.create({
       ...postData,
       excerpt,
       authorId: currentUserId,
       createdAt: postData.createdAt ?? new Date().toISOString(),
     });
+
+    await this.invalidatePostListCache();
+    await this.invalidateMyPostsCache(currentUserId);
+
+    // Prewarm detail cache so first navigation to the new post is faster.
+    const detail = await this.postRepository.findById(
+      String(createdPost.id),
+      this.buildPostDetailQuery(),
+    );
+    await this.redisService.setJson(
+      `${KEY_DETAIL_PREFIX}${createdPost.id}`,
+      detail,
+      TTL_DETAIL,
+    );
+
+    return createdPost;
   }
 
   @get('/posts/count')
@@ -86,14 +158,46 @@ export class PostController {
     skip: number = 0,
     @param.query.number('limit', {description: 'Number of records to return'})
     limit: number = 10,
-    @param.query.string('order', {description: 'Order by field, e.g., createdAt DESC'})
+    @param.query.string('order', {
+      description: 'Order by field, e.g., createdAt DESC',
+    })
     order: string = 'createdAt DESC',
+    @param.query.string('q', {
+      description: 'Keyword to search in post title',
+    })
+    q?: string,
   ): Promise<PaginatedPostsDto> {
-    const [items, countResult] = await Promise.all([
-      this.postRepository.find({
+    const normalizedQ = q?.trim().toLowerCase();
+    const searchKey = normalizedQ ?? 'all';
+
+    const where = normalizedQ
+      ? {
+          title: {
+            regexp: new RegExp(
+              normalizedQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+              'i',
+            ),
+          },
+        }
+      : undefined;
+
+    const listKey = `${KEY_LIST_PREFIX}skip=${skip}:limit=${limit}:order=${order}:q=${searchKey}`;
+    const totalKey = `${KEY_TOTAL}:${searchKey}`;
+
+    const cachedItems = await this.redisService.getJson<Post[]>(listKey);
+    const cachedTotal = await this.redisService.getJson<number>(totalKey);
+
+    if (cachedItems && typeof cachedTotal === 'number') {
+      return {items: cachedItems, total: cachedTotal};
+    }
+
+    const items =
+      cachedItems ??
+      (await this.postRepository.find({
         skip,
         limit,
-        order: [order as any],
+        order: [order],
+        ...(where ? {where} : {}),
         fields: {
           id: true,
           title: true,
@@ -105,16 +209,26 @@ export class PostController {
         include: [
           {
             relation: 'author',
-            scope: {fields: {id: true, username: true}},
+            scope: {fields: {username: true}},
           },
         ],
-      }),
-      this.postRepository.count(),
-    ]);
+      }));
 
-    const total = typeof countResult === 'number' ? countResult : countResult.count;
+    const total =
+      typeof cachedTotal === 'number'
+        ? cachedTotal
+        : (await this.postRepository.count(where)).count;
 
-    return {items, total};
+    const result = {items, total};
+
+    if (!cachedItems) {
+      await this.redisService.setJson(listKey, items, TTL_LIST);
+    }
+    if (typeof cachedTotal !== 'number') {
+      await this.redisService.setJson(totalKey, total, TTL_TOTAL);
+    }
+
+    return result;
   }
 
   @get('/posts')
@@ -162,90 +276,17 @@ export class PostController {
     @param.path.string('id') id: string,
     @param.filter(Post, {exclude: 'where'}) filter?: FilterExcludingWhere<Post>,
   ): Promise<Post> {
-    return this.postRepository.findById(id, {
-      ...filter,
-      include: [
-        {
-          relation: 'author',
-          scope: {fields: {id: true, username: true}},
-        },
-        {
-          relation: 'comments',
-          scope: {
-            fields: {
-              id: true,
-              content: true,
-              postId: true,
-              authorId: true,
-            },
-            include: [
-              {
-                relation: 'author',
-                scope: {fields: {id: true, username: true}},
-              },
-            ],
-          },
-        },
-      ],
-    });
-  }
+    const query = this.buildPostDetailQuery(filter);
+    const detailKey = `${KEY_DETAIL_PREFIX}${id}`;
+    const cached = await this.redisService.getJson<Post>(detailKey);
+    if (cached) {
+      return cached;
+    }
 
-  @authenticate('jwt')
-  @authorize({
-    allowedRoles: ['admin'],
-    owner: 'post',
-    ownerArgIndex: 0,
-  } as AuthorizationMetadata)
-  @patch('/posts/{id}')
-  @response(204, {
-    description: 'Post PATCH success',
-  })
-  async updateById(
-    @param.path.string('id') id: string,
-    @requestBody({
-      content: {
-        'application/json': {
-          schema: getModelSchemaRef(CreatePostDto, {partial: true}),
-        },
-      },
-    })
-    postData: Partial<CreatePostDto>,
-  ): Promise<void> {
-    await this.postRepository.updateById(id, postData);
-  }
+    const detail = await this.postRepository.findById(id, query);
+    await this.redisService.setJson(detailKey, detail, TTL_DETAIL);
 
-  @authenticate('jwt')
-  @authorize({
-    allowedRoles: ['admin'],
-    owner: 'post',
-    ownerArgIndex: 0,
-  } as AuthorizationMetadata)
-  @put('/posts/{id}')
-  @response(204, {
-    description: 'Post PUT success',
-  })
-  async replaceById(
-    @param.path.string('id') id: string,
-    @requestBody({
-      content: {
-        'application/json': {
-          schema: getModelSchemaRef(CreatePostDto),
-        },
-      },
-    })
-    postData: CreatePostDto,
-  ): Promise<void> {
-    const existingPost = await this.postRepository.findById(id);
-    const excerpt = postData.content.substring(0, 180) + 
-      (postData.content.length > 180 ? '...' : '');
-
-    const replacement = Object.assign(existingPost, postData, {
-      excerpt,
-      authorId: existingPost.authorId,
-      createdAt: existingPost.createdAt,
-    });
-
-    await this.postRepository.replaceById(id, replacement);
+    return detail;
   }
 
   @authenticate('jwt')
@@ -259,7 +300,12 @@ export class PostController {
     description: 'Post DELETE success',
   })
   async deleteById(@param.path.string('id') id: string): Promise<void> {
+    const existingPost = await this.postRepository.findById(id);
+
     await this.commentRepository.deleteAll({postId: id});
     await this.postRepository.deleteById(id);
+    await this.invalidatePostListCache();
+    await this.invalidateMyPostsCache(String(existingPost.authorId));
+    await this.invalidatePostDetailCache(id);
   }
 }

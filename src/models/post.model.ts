@@ -2,7 +2,21 @@ import {Entity, model, property, hasMany, belongsTo} from '@loopback/repository'
 import {Comment} from './comment.model';
 import {User} from './user.model';
 
-@model({settings: {strict: false}})
+@model({
+  settings: {
+    strict: false,
+    indexes: {
+      idx_post_createdAt_desc: {
+        keys: {createdAt: -1},
+        options: {background: true},
+      },
+      idx_post_authorId_createdAt_desc: {
+        keys: {authorId: 1, createdAt: -1},
+        options: {background: true},
+      },
+    },
+  },
+})
 export class Post extends Entity {
   @property({
     type: 'string',

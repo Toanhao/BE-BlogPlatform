@@ -6,12 +6,11 @@ const config = {
   name: 'MongoDb',
   connector: 'mongodb',
   url: process.env.MONGODB_URL,
-  host: '',
-  port: 0,
-  user: '',
-  password: '',
-  database: '',
   useNewUrlParser: true,
+  useUnifiedTopology: true,
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  serverSelectionTimeOutMS: 5000,
 };
 
 // Observe application's life cycle to disconnect the datasource when
