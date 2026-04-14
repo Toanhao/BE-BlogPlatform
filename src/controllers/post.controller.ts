@@ -25,11 +25,11 @@ import {CreatePostDto, PaginatedPostsDto} from '../dtos';
 import {AppblogBindings} from '../keys';
 import {Post} from '../models';
 import {CommentRepository, PostRepository} from '../repositories';
-import {RedisService} from '../services';
+import {CooldownService, RedisService} from '../services';
 
-const TTL_LIST = 120;
-const TTL_TOTAL = 120;
-const TTL_DETAIL = 1800;
+const TTL_LIST = 86400;
+const TTL_TOTAL = 86400;
+const TTL_DETAIL = 86400;
 const KEY_TOTAL = 'posts:total';
 const KEY_LIST_PREFIX = 'posts:paginated:';
 const KEY_DETAIL_PREFIX = 'post:detail:';
@@ -43,6 +43,8 @@ export class PostController {
     public commentRepository: CommentRepository,
     @inject(AppblogBindings.REDIS_SERVICE)
     private redisService: RedisService,
+    @inject(AppblogBindings.COOLDOWN_SERVICE)
+    private cooldownService: CooldownService,
     @inject(SecurityBindings.USER, {optional: true})
     private currentUserProfile: UserProfile,
   ) {}
@@ -107,6 +109,9 @@ export class PostController {
     postData: CreatePostDto,
   ): Promise<Post> {
     const currentUserId = String(this.currentUserProfile[securityId]);
+
+    await this.cooldownService.enforceCooldown(currentUserId, 'post', 10);
+
     const excerpt =
       postData.content.substring(0, 180) +
       (postData.content.length > 180 ? '...' : '');
@@ -167,16 +172,14 @@ export class PostController {
     })
     q?: string,
   ): Promise<PaginatedPostsDto> {
+    
     const normalizedQ = q?.trim().toLowerCase();
     const searchKey = normalizedQ ?? 'all';
 
     const where = normalizedQ
       ? {
-          title: {
-            regexp: new RegExp(
-              normalizedQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-              'i',
-            ),
+          $text: {
+            $search: normalizedQ,
           },
         }
       : undefined;

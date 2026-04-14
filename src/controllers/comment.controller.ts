@@ -24,7 +24,7 @@ import {CreateCommentDto} from '../dtos';
 import {AppblogBindings} from '../keys';
 import {Comment} from '../models';
 import {CommentRepository} from '../repositories';
-import {RedisService} from '../services';
+import {CooldownService, RedisService} from '../services';
 
 const KEY_DETAIL_PREFIX = 'post:detail:';
 
@@ -34,6 +34,8 @@ export class CommentController {
     public commentRepository: CommentRepository,
     @inject(AppblogBindings.REDIS_SERVICE)
     private redisService: RedisService,
+    @inject(AppblogBindings.COOLDOWN_SERVICE)
+    private cooldownService: CooldownService,
     @inject(SecurityBindings.USER, {optional: true})
     private currentUserProfile: UserProfile,
   ) {}
@@ -59,6 +61,13 @@ export class CommentController {
     comment: CreateCommentDto,
   ): Promise<Comment> {
     const currentUserId = String(this.currentUserProfile[securityId]);
+
+    await this.cooldownService.enforceCooldown(
+      currentUserId,
+      'comment',
+      5,
+    );
+
     const createdComment = await this.commentRepository.create({
       ...comment,
       authorId: currentUserId,

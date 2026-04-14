@@ -8,7 +8,6 @@ import {Post} from './post.model';
     indexes: {
       idx_comment_postId_createdAt: {
         keys: {postId: 1, createdAt: -1},
-        options: {background: true},
       },
     },
   },

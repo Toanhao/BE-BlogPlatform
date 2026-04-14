@@ -8,11 +8,12 @@ import {User} from './user.model';
     indexes: {
       idx_post_createdAt_desc: {
         keys: {createdAt: -1},
-        options: {background: true},
       },
       idx_post_authorId_createdAt_desc: {
         keys: {authorId: 1, createdAt: -1},
-        options: {background: true},
+      },
+      idx_post_title_text: {
+        keys: {title: 'text'},
       },
     },
   },
