@@ -22,7 +22,14 @@ import {MongoDbDataSource} from './datasources';
 import {AppblogBindings} from './keys';
 import {AppblogAuthorizationProvider} from './providers';
 import {MySequence} from './sequence';
-import {AppblogUserService, CooldownService, RedisService} from './services';
+import {
+  AuthService,
+  CommentService,
+  CooldownService,
+  PostService,
+  UserService,
+  RedisService,
+} from './services';
 import {RateLimitMiddlewareProvider} from './middleware/rate-limit.middleware';
 import {UserRateLimitInterceptorProvider} from './interceptors/user-rate-limit.interceptor';
 
@@ -57,9 +64,12 @@ export class AppblogApplication extends BootMixin(
       process.env.JWT_EXPIRES_IN ?? '3600',
     );
     this.dataSource(MongoDbDataSource, UserServiceBindings.DATASOURCE_NAME);
-    this.bind(AppblogBindings.USER_SERVICE).toClass(AppblogUserService);
+    this.bind(AppblogBindings.AUTH_SERVICE).toClass(AuthService);
+    this.bind(AppblogBindings.USER_SERVICE).toClass(UserService);
+    this.bind(AppblogBindings.COMMENT_SERVICE).toClass(CommentService);
     this.bind(AppblogBindings.REDIS_SERVICE).toClass(RedisService);
     this.bind(AppblogBindings.COOLDOWN_SERVICE).toClass(CooldownService);
+    this.bind(AppblogBindings.POST_SERVICE).toClass(PostService);
     this.middleware(RateLimitMiddlewareProvider);
     this.interceptor(UserRateLimitInterceptorProvider, {global: true});
     this.bind('authorizationProviders.appblog')

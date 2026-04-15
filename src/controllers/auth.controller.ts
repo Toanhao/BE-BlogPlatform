@@ -1,17 +1,17 @@
-import {authenticate, TokenService, UserService} from '@loopback/authentication';
+import {
+  authenticate,
+  TokenService,
+} from '@loopback/authentication';
 import {TokenServiceBindings} from '@loopback/authentication-jwt';
 import {inject} from '@loopback/core';
-import {repository} from '@loopback/repository';
 import {
   get,
   getModelSchemaRef,
-  HttpErrors,
   post,
   requestBody,
   response,
 } from '@loopback/rest';
 import {SecurityBindings, UserProfile} from '@loopback/security';
-import {hash} from 'bcryptjs';
 import {
   LoginRequestDto,
   LoginResponseDto,
@@ -20,16 +20,14 @@ import {
 } from '../dtos';
 import {AppblogBindings} from '../keys';
 import {User} from '../models';
-import {UserRepository} from '../repositories';
+import {AuthService} from '../services';
 
 export class AuthController {
   constructor(
-    @repository(UserRepository)
-    public userRepository: UserRepository,
     @inject(TokenServiceBindings.TOKEN_SERVICE)
     public tokenService: TokenService,
-    @inject(AppblogBindings.USER_SERVICE)
-    public userService: UserService<User, LoginRequestDto>,
+    @inject(AppblogBindings.AUTH_SERVICE)
+    public authService: AuthService,
     @inject(SecurityBindings.USER, {optional: true})
     private currentUserProfile: UserProfile,
   ) {}
@@ -60,21 +58,12 @@ export class AuthController {
     })
     payload: RegisterRequestDto,
   ): Promise<RegisterResponseDto> {
-    const existingUser = await this.userRepository.findOne({
-      where: {email: payload.email},
-    });
-
-    if (existingUser) {
-      throw new HttpErrors.Conflict('Email already exists');
-    }
-
-    const password = await hash(payload.password, 10);
-    const createdUser = await this.userRepository.create({
+    const createdUser = await this.authService.createUser({
       username: payload.username,
       email: payload.email,
-      password,
-      role: 'user',
+      password: payload.password,
       image: payload.image,
+      role: 'user',
     });
 
     return {
@@ -112,8 +101,8 @@ export class AuthController {
     })
     credentials: LoginRequestDto,
   ): Promise<LoginResponseDto> {
-    const user = await this.userService.verifyCredentials(credentials);
-    const userProfile = this.userService.convertToUserProfile(user);
+    const user = await this.authService.verifyCredentials(credentials);
+    const userProfile = this.authService.convertToUserProfile(user);
 
     const token = await this.tokenService.generateToken(userProfile);
     return {

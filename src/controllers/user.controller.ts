@@ -1,9 +1,6 @@
 import {
-  Count,
-  CountSchema,
   Filter,
-  repository,
-  Where,
+  FilterExcludingWhere,
 } from '@loopback/repository';
 import {authorize, AuthorizationMetadata} from '@loopback/authorization';
 import {
@@ -11,32 +8,21 @@ import {
   param,
   get,
   getModelSchemaRef,
-  patch,
-  put,
-  del,
   requestBody,
   response,
-  HttpErrors,
 } from '@loopback/rest';
-import {hash} from 'bcryptjs';
 import {authenticate} from '@loopback/authentication';
 import {Post, User} from '../models';
-import {UserRepository} from '../repositories';
 import {CreateUserDto} from '../dtos';
 import {inject} from '@loopback/core';
 import {AppblogBindings} from '../keys';
-import {RedisService} from '../services';
-
-const TTL_MY_POSTS = 120;
-const KEY_MY_POSTS_PREFIX = 'posts:my:';
+import {UserService} from '../services';
 
 @authenticate('jwt')
 export class UserController {
   constructor(
-    @repository(UserRepository)
-    public userRepository: UserRepository,
-    @inject(AppblogBindings.REDIS_SERVICE)
-    private redisService: RedisService,
+    @inject(AppblogBindings.USER_SERVICE)
+    private userService: UserService,
   ) {}
 
   @authorize({
@@ -57,17 +43,11 @@ export class UserController {
     })
     user: CreateUserDto,
   ): Promise<User> {
-    const existingUser = await this.userRepository.findOne({
-      where: {email: user.email},
-    });
-    if (existingUser) {
-      throw new HttpErrors.Conflict('Email already exists');
-    }
-
-    const hashedPassword = await hash(user.password, 10);
-    return this.userRepository.create({
-      ...user,
-      password: hashedPassword,
+    return this.userService.createUser({
+      username: user.username,
+      email: user.email,
+      password: user.password,
+      image: user.image,
       role: 'user',
     });
   }
@@ -88,7 +68,7 @@ export class UserController {
     },
   })
   async find(@param.filter(User) filter?: Filter<User>): Promise<User[]> {
-    return this.userRepository.find(filter);
+    return this.userService.findUsers(filter);
   }
 
   @get('/users/{id}')
@@ -107,9 +87,9 @@ export class UserController {
   })
   async findById(
     @param.path.string('id') id: string,
-    @param.filter(User, {exclude: 'where'}) filter?: Filter<User>,
+    @param.filter(User, {exclude: 'where'}) filter?: FilterExcludingWhere<User>,
   ): Promise<User> {
-    return this.userRepository.findById(id, filter);
+    return this.userService.findUserById(id, filter);
   }
 
   @get('/users/{id}/posts')
@@ -132,19 +112,6 @@ export class UserController {
   async findPostsByUserId(
     @param.path.string('id') id: string,
   ): Promise<Post[]> {
-    const cacheKey = `${KEY_MY_POSTS_PREFIX}${id}`;
-    const cached = await this.redisService.getJson<Post[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    const posts = await this.userRepository.posts(id).find({
-      order: ['createdAt DESC'],
-      include: [{relation: 'author'}],
-    });
-
-    await this.redisService.setJson(cacheKey, posts, TTL_MY_POSTS);
-
-    return posts;
+    return this.userService.findPostsByUserId(id);
   }
 }

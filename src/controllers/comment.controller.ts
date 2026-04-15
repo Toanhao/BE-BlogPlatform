@@ -2,20 +2,14 @@ import {authenticate} from '@loopback/authentication';
 import {authorize, AuthorizationMetadata} from '@loopback/authorization';
 import {inject} from '@loopback/core';
 import {
-  Count,
-  CountSchema,
   FilterExcludingWhere,
-  repository,
-  Where,
 } from '@loopback/repository';
 import {
   del,
   get,
   getModelSchemaRef,
   param,
-  patch,
   post,
-  put,
   requestBody,
   response,
 } from '@loopback/rest';
@@ -23,26 +17,15 @@ import {securityId, SecurityBindings, UserProfile} from '@loopback/security';
 import {CreateCommentDto} from '../dtos';
 import {AppblogBindings} from '../keys';
 import {Comment} from '../models';
-import {CommentRepository} from '../repositories';
-import {CooldownService, RedisService} from '../services';
-
-const KEY_DETAIL_PREFIX = 'post:detail:';
+import {CommentService} from '../services';
 
 export class CommentController {
   constructor(
-    @repository(CommentRepository)
-    public commentRepository: CommentRepository,
-    @inject(AppblogBindings.REDIS_SERVICE)
-    private redisService: RedisService,
-    @inject(AppblogBindings.COOLDOWN_SERVICE)
-    private cooldownService: CooldownService,
+    @inject(AppblogBindings.COMMENT_SERVICE)
+    private commentService: CommentService,
     @inject(SecurityBindings.USER, {optional: true})
     private currentUserProfile: UserProfile,
   ) {}
-
-  private async invalidatePostDetailCache(postId: string): Promise<void> {
-    await this.redisService.deleteKey(`${KEY_DETAIL_PREFIX}${postId}`);
-  }
 
   @authenticate('jwt')
   @post('/comments')
@@ -62,21 +45,7 @@ export class CommentController {
   ): Promise<Comment> {
     const currentUserId = String(this.currentUserProfile[securityId]);
 
-    await this.cooldownService.enforceCooldown(
-      currentUserId,
-      'comment',
-      5,
-    );
-
-    const createdComment = await this.commentRepository.create({
-      ...comment,
-      authorId: currentUserId,
-      createdAt: comment.createdAt ?? new Date().toISOString(),
-    });
-
-    await this.invalidatePostDetailCache(createdComment.postId);
-
-    return createdComment;
+    return this.commentService.createCommentForUser(comment, currentUserId);
   }
 
 
@@ -94,7 +63,7 @@ export class CommentController {
     @param.filter(Comment, {exclude: 'where'})
     filter?: FilterExcludingWhere<Comment>,
   ): Promise<Comment> {
-    return this.commentRepository.findById(id, filter);
+    return this.commentService.findCommentById(id, filter);
   }
 
 
@@ -109,10 +78,6 @@ export class CommentController {
     description: 'Comment DELETE success',
   })
   async deleteById(@param.path.string('id') id: string): Promise<void> {
-    const existingComment = await this.commentRepository.findById(id);
-
-    await this.commentRepository.deleteById(id);
-
-    await this.invalidatePostDetailCache(existingComment.postId);
+    await this.commentService.deleteCommentById(id);
   }
 }
