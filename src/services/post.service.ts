@@ -57,22 +57,6 @@ export class PostService {
           relation: 'author',
           scope: {fields: {username: true}},
         },
-        {
-          relation: 'comments',
-          scope: {
-            fields: {
-              content: true,
-              postId: true,
-              authorId: true,
-            },
-            include: [
-              {
-                relation: 'author',
-                scope: {fields: {username: true}},
-              },
-            ],
-          },
-        },
       ],
     };
   }

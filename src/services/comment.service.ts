@@ -1,13 +1,13 @@
 import {injectable, inject} from '@loopback/core';
 import {FilterExcludingWhere, repository} from '@loopback/repository';
 import {AppblogBindings} from '../keys';
-import {CreateCommentDto} from '../dtos';
+import {CreateCommentDto, PaginatedCommentsDto} from '../dtos';
 import {Comment} from '../models';
 import {CommentRepository} from '../repositories';
 import {CooldownService} from './cooldown.service';
 import {RedisService} from './redis.service';
 
-const KEY_DETAIL_PREFIX = 'post:detail:';
+const KEY_COMMENTS_PREFIX = 'post:comments:';
 
 @injectable()
 export class CommentService {
@@ -20,8 +20,17 @@ export class CommentService {
     private cooldownService: CooldownService,
   ) {}
 
-  private async invalidatePostDetailCache(postId: string): Promise<void> {
-    await this.redisService.deleteKey(`${KEY_DETAIL_PREFIX}${postId}`);
+  private buildCommentsCacheKey(
+    postId: string,
+    skip: number,
+    limit: number,
+    order: string,
+  ): string {
+    return `${KEY_COMMENTS_PREFIX}${postId}:skip=${skip}:limit=${limit}:order=${order}`;
+  }
+
+  private async invalidatePostCommentsCache(postId: string): Promise<void> {
+    await this.redisService.deleteByPattern(`${KEY_COMMENTS_PREFIX}${postId}:*`);
   }
 
   async createCommentForUser(
@@ -36,7 +45,7 @@ export class CommentService {
       createdAt: commentData.createdAt ?? new Date().toISOString(),
     });
 
-    await this.invalidatePostDetailCache(createdComment.postId);
+    await this.invalidatePostCommentsCache(createdComment.postId);
 
     return createdComment;
   }
@@ -48,10 +57,55 @@ export class CommentService {
     return this.commentRepository.findById(id, filter);
   }
 
+  async findPaginatedCommentsByPost(
+    postId: string,
+    skip: number,
+    limit: number,
+    order: string,
+  ): Promise<PaginatedCommentsDto> {
+    const where = {postId};
+    const cacheKey = this.buildCommentsCacheKey(postId, skip, limit, order);
+
+    const cached = await this.redisService.getJson<PaginatedCommentsDto>(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    const [items, totalResult] = await Promise.all([
+      this.commentRepository.find({
+        where,
+        skip,
+        limit,
+        order: [order],
+        fields: {
+          id: true,
+          content: true,
+          createdAt: true,
+          postId: true,
+          authorId: true,
+        },
+        include: [
+          {
+            relation: 'author',
+            scope: {fields: {username: true}},
+          },
+        ],
+      }),
+      this.commentRepository.count(where),
+    ]);
+
+    const result = {items, total: totalResult.count};
+
+    await this.redisService.setJson(cacheKey, result, 86400);
+
+    return result;
+  }
+
   async deleteCommentById(id: string): Promise<void> {
     const existingComment = await this.commentRepository.findById(id);
 
     await this.commentRepository.deleteById(id);
-    await this.invalidatePostDetailCache(existingComment.postId);
+    await this.invalidatePostCommentsCache(existingComment.postId);
   }
 }

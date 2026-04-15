@@ -11,3 +11,16 @@ export class CreateCommentDto {
   @property({type: 'date'})
   createdAt?: string;
 }
+
+@model()
+export class PaginatedCommentsDto {
+  @property({
+    type: 'array',
+    itemType: 'object',
+    required: true,
+  })
+  items: object[];
+
+  @property({type: 'number', required: true})
+  total: number;
+}

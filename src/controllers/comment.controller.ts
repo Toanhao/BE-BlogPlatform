@@ -14,7 +14,7 @@ import {
   response,
 } from '@loopback/rest';
 import {securityId, SecurityBindings, UserProfile} from '@loopback/security';
-import {CreateCommentDto} from '../dtos';
+import {CreateCommentDto, PaginatedCommentsDto} from '../dtos';
 import {AppblogBindings} from '../keys';
 import {Comment} from '../models';
 import {CommentService} from '../services';
@@ -64,6 +64,34 @@ export class CommentController {
     filter?: FilterExcludingWhere<Comment>,
   ): Promise<Comment> {
     return this.commentService.findCommentById(id, filter);
+  }
+
+  @get('/posts/{postId}/comments')
+  @response(200, {
+    description: 'Paginated comments of a post',
+    content: {
+      'application/json': {
+        schema: getModelSchemaRef(PaginatedCommentsDto),
+      },
+    },
+  })
+  async findByPostId(
+    @param.path.string('postId') postId: string,
+    @param.query.number('skip', {description: 'Number of comments to skip'})
+    skip: number = 0,
+    @param.query.number('limit', {description: 'Number of comments to return'})
+    limit: number = 5,
+    @param.query.string('order', {
+      description: 'Order by field, e.g., createdAt DESC',
+    })
+    order: string = 'createdAt DESC',
+  ): Promise<PaginatedCommentsDto> {
+    return this.commentService.findPaginatedCommentsByPost(
+      postId,
+      skip,
+      limit,
+      order,
+    );
   }
 
 
