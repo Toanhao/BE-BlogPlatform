@@ -1,6 +1,6 @@
 import {authenticate} from '@loopback/authentication';
 import {authorize, AuthorizationMetadata} from '@loopback/authorization';
-import {inject} from '@loopback/core';
+import {intercept, inject} from '@loopback/core';
 import {
   FilterExcludingWhere,
 } from '@loopback/repository';
@@ -17,6 +17,7 @@ import {securityId, SecurityBindings, UserProfile} from '@loopback/security';
 import {CreateCommentDto, PaginatedCommentsDto} from '../dtos';
 import {AppblogBindings} from '../keys';
 import {Comment} from '../models';
+import {rateLimit} from '../rate-limit';
 import {CommentService} from '../services';
 
 export class CommentController {
@@ -29,6 +30,8 @@ export class CommentController {
 
   @authenticate('jwt')
   @post('/comments')
+  @intercept(AppblogBindings.RATE_LIMIT_INTERCEPTOR)
+  @rateLimit('comment.create')
   @response(200, {
     description: 'Comment model instance',
     content: {'application/json': {schema: getModelSchemaRef(Comment)}},

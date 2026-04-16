@@ -32,7 +32,7 @@ import {
 } from './services';
 import {RateLimitMiddlewareProvider} from './middleware/rate-limit.middleware';
 import {CookieAuthMiddlewareProvider} from './middleware/cookie-auth.middleware';
-import {UserRateLimitInterceptorProvider} from './interceptors/user-rate-limit.interceptor';
+import {RateLimitInterceptorProvider} from './interceptors/rate-limit.interceptor';
 
 export {ApplicationConfig};
 
@@ -73,7 +73,9 @@ export class AppblogApplication extends BootMixin(
     this.bind(AppblogBindings.POST_SERVICE).toClass(PostService);
     this.middleware(CookieAuthMiddlewareProvider);
     this.middleware(RateLimitMiddlewareProvider);
-    this.interceptor(UserRateLimitInterceptorProvider, {global: true});
+    this.bind(AppblogBindings.RATE_LIMIT_INTERCEPTOR).toProvider(
+      RateLimitInterceptorProvider,
+    );
     this.bind('authorizationProviders.appblog')
       .toProvider(AppblogAuthorizationProvider)
       .tag(AuthorizationTags.AUTHORIZER);

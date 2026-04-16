@@ -37,7 +37,7 @@ export class CommentService {
     commentData: CreateCommentDto,
     userId: string,
   ): Promise<Comment> {
-    await this.cooldownService.enforceCooldown(userId, 'comment', 5);
+    await this.cooldownService.enforceCooldown(userId, 'comment', 3);
 
     const createdComment = await this.commentRepository.create({
       ...commentData,

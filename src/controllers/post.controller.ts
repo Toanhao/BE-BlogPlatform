@@ -1,6 +1,6 @@
 import {authenticate} from '@loopback/authentication';
 import {AuthorizationMetadata, authorize} from '@loopback/authorization';
-import {inject} from '@loopback/core';
+import {intercept, inject} from '@loopback/core';
 import {
   Count,
   CountSchema,
@@ -21,6 +21,7 @@ import {SecurityBindings, securityId, UserProfile} from '@loopback/security';
 import {CreatePostDto, PaginatedPostsDto} from '../dtos';
 import {AppblogBindings} from '../keys';
 import {Post} from '../models';
+import {rateLimit} from '../rate-limit';
 import {PostService} from '../services';
 
 export class PostController {
@@ -33,6 +34,8 @@ export class PostController {
 
   @authenticate('jwt')
   @post('/posts')
+  @intercept(AppblogBindings.RATE_LIMIT_INTERCEPTOR)
+  @rateLimit('post.create')
   @response(200, {
     description: 'Post model instance',
     content: {'application/json': {schema: getModelSchemaRef(Post)}},
@@ -62,6 +65,8 @@ export class PostController {
   }
 
   @get('/posts/paginated')
+  @intercept(AppblogBindings.RATE_LIMIT_INTERCEPTOR)
+  @rateLimit('post.read')
   @response(200, {
     description: 'Paginated array of Post model instances with total count',
     content: {

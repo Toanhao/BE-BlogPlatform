@@ -30,4 +30,7 @@ export namespace AppblogBindings {
   export const POST_SERVICE = BindingKey.create<PostService>(
     'services.appblog.post.service',
   );
+
+  export const RATE_LIMIT_INTERCEPTOR =
+    'interceptors.appblog.rate-limit';
 }

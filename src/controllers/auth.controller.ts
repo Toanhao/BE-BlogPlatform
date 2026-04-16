@@ -3,7 +3,7 @@ import {
   TokenService,
 } from '@loopback/authentication';
 import {TokenServiceBindings} from '@loopback/authentication-jwt';
-import {inject} from '@loopback/core';
+import {intercept, inject} from '@loopback/core';
 import {
   get,
   getModelSchemaRef,
@@ -22,6 +22,7 @@ import {
 } from '../dtos';
 import {AppblogBindings} from '../keys';
 import {User} from '../models';
+import {rateLimit} from '../rate-limit';
 import {AuthService} from '../services';
 
 export class AuthController {
@@ -49,6 +50,8 @@ export class AuthController {
       },
     },
   })
+  @intercept(AppblogBindings.RATE_LIMIT_INTERCEPTOR)
+  @rateLimit('auth.register')
   async register(
     @requestBody({
       required: true,
@@ -92,6 +95,8 @@ export class AuthController {
       },
     },
   })
+  @intercept(AppblogBindings.RATE_LIMIT_INTERCEPTOR)
+  @rateLimit('auth.login')
   async login(
     @inject(RestBindings.Http.RESPONSE) res: Response,
     @requestBody({
