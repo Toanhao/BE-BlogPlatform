@@ -8,7 +8,9 @@ import {
   get,
   getModelSchemaRef,
   post,
+  RestBindings,
   requestBody,
+  Response,
   response,
 } from '@loopback/rest';
 import {SecurityBindings, UserProfile} from '@loopback/security';
@@ -91,6 +93,7 @@ export class AuthController {
     },
   })
   async login(
+    @inject(RestBindings.Http.RESPONSE) res: Response,
     @requestBody({
       required: true,
       content: {
@@ -105,6 +108,22 @@ export class AuthController {
     const userProfile = this.authService.convertToUserProfile(user);
 
     const token = await this.tokenService.generateToken(userProfile);
+
+      const isSecure = process.env.NODE_ENV === 'production';
+      const maxAgeSeconds = Number(process.env.AUTH_COOKIE_MAX_AGE ?? 3600);
+      const serializedCookie = [
+        `access_token=${encodeURIComponent(token)}`,
+        'HttpOnly',
+        'Path=/',
+        `Max-Age=${Number.isFinite(maxAgeSeconds) ? maxAgeSeconds : 3600}`,
+        'SameSite=Lax',
+        isSecure ? 'Secure' : '',
+      ]
+        .filter(Boolean)
+        .join('; ');
+
+      res.setHeader('Set-Cookie', serializedCookie);
+
     return {
       token,
       user: {
@@ -114,6 +133,30 @@ export class AuthController {
         role: user.role,
       },
     };
+  }
+
+  @post('/auth/logout', {
+    responses: {
+      '204': {
+        description: 'Logout success',
+      },
+    },
+  })
+  logout(@inject(RestBindings.Http.RESPONSE) res: Response): void {
+    const isSecure = process.env.NODE_ENV === 'production';
+    const serializedCookie = [
+      'access_token=',
+      'HttpOnly',
+      'Path=/',
+      'Max-Age=0',
+      'SameSite=Lax',
+      isSecure ? 'Secure' : '',
+    ]
+      .filter(Boolean)
+      .join('; ');
+
+    res.setHeader('Set-Cookie', serializedCookie);
+    res.status(204).send();
   }
 
   @authenticate('jwt')

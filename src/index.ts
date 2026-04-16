@@ -19,10 +19,19 @@ export async function main(options: ApplicationConfig = {}) {
 
 if (require.main === module) {
   // Run the application
+  const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:3000')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
   const config = {
     rest: {
       port: +(process.env.PORT ?? 3001),
       host: process.env.HOST || '127.0.0.1',
+      cors: {
+        origin: corsOrigins,
+        credentials: true,
+      },
       // The `gracePeriodForClose` provides a graceful close for http/https
       // servers with keep-alive clients. The default value is `Infinity`
       // (don't force-close). If you want to immediately destroy all sockets

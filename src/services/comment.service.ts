@@ -98,6 +98,7 @@ export class CommentService {
     const result = {items, total: totalResult.count};
 
     await this.redisService.setJson(cacheKey, result, 86400);
+    console.log("Cached comments for post", postId, "with key", cacheKey);
 
     return result;
   }
