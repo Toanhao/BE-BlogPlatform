@@ -47,9 +47,6 @@ export class UserProfileDto {
 
 @model()
 export class LoginResponseDto {
-  @property({type: 'string', required: true})
-  token: string;
-
   @property({type: UserProfileDto, required: true})
   user: UserProfileDto;
 }

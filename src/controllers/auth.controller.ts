@@ -1,7 +1,4 @@
-import {
-  authenticate,
-  TokenService,
-} from '@loopback/authentication';
+import {authenticate, TokenService} from '@loopback/authentication';
 import {TokenServiceBindings} from '@loopback/authentication-jwt';
 import {intercept, inject} from '@loopback/core';
 import {
@@ -114,23 +111,22 @@ export class AuthController {
 
     const token = await this.tokenService.generateToken(userProfile);
 
-      const isSecure = process.env.NODE_ENV === 'production';
-      const maxAgeSeconds = Number(process.env.AUTH_COOKIE_MAX_AGE ?? 3600);
-      const serializedCookie = [
-        `access_token=${encodeURIComponent(token)}`,
-        'HttpOnly',
-        'Path=/',
-        `Max-Age=${Number.isFinite(maxAgeSeconds) ? maxAgeSeconds : 3600}`,
-        'SameSite=Lax',
-        isSecure ? 'Secure' : '',
-      ]
-        .filter(Boolean)
-        .join('; ');
+    const isSecure = process.env.NODE_ENV === 'production';
+    const maxAgeSeconds = Number(process.env.AUTH_COOKIE_MAX_AGE ?? 3600);
+    const serializedCookie = [
+      `access_token=${encodeURIComponent(token)}`,
+      'HttpOnly',
+      'Path=/',
+      `Max-Age=${Number.isFinite(maxAgeSeconds) ? maxAgeSeconds : 3600}`,
+      'SameSite=Lax',
+      isSecure ? 'Secure' : '',
+    ]
+      .filter(Boolean)
+      .join('; ');
 
-      res.setHeader('Set-Cookie', serializedCookie);
+    res.setHeader('Set-Cookie', serializedCookie);
 
     return {
-      token,
       user: {
         id: String(user.id),
         name: user.username,
@@ -172,12 +168,36 @@ export class AuthController {
       'application/json': {
         schema: {
           type: 'object',
-          additionalProperties: true,
+          properties: {
+            user: {
+              type: 'object',
+              properties: {
+                id: {type: 'string'},
+                name: {type: 'string'},
+                email: {type: 'string'},
+                role: {type: 'string'},
+              },
+              required: ['id', 'name', 'email', 'role'],
+            },
+          },
+          required: ['user'],
         },
       },
     },
   })
-  me(): UserProfile {
-    return this.currentUserProfile;
+  async me(): Promise<{
+    user: {id: string; name: string; email: string; role: string};
+  }> {
+    const userId = this.currentUserProfile?.id;
+    if (!userId) throw new Error('Unauthorized');
+    const user = await this.authService.userRepository.findById(userId);
+    return {
+      user: {
+        id: String(user.id),
+        name: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    };
   }
 }

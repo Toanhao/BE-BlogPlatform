@@ -18,6 +18,8 @@ import {RepositoryMixin} from '@loopback/repository';
 import {RestApplication} from '@loopback/rest';
 import {ServiceMixin} from '@loopback/service-proxy';
 import path from 'path';
+import {CronComponent} from '@loopback/cron';
+import {StatisticCountTotalJob, StatisticCountTodayJob} from './jobs';
 import {MongoDbDataSource} from './datasources';
 import {AppblogBindings} from './keys';
 import {AppblogAuthorizationProvider} from './providers';
@@ -58,6 +60,12 @@ export class AppblogApplication extends BootMixin(
     this.component(AuthenticationComponent);
     this.component(AuthorizationComponent);
     this.component(JWTAuthenticationComponent);
+
+    // Đăng ký cron job component
+    this.component(CronComponent);
+
+    // Đăng ký cron job
+    this.component(CronComponent);
     this.bind(TokenServiceBindings.TOKEN_SECRET).to(
       process.env.JWT_SECRET ?? 'my-secret-key',
     );
@@ -80,6 +88,9 @@ export class AppblogApplication extends BootMixin(
       .toProvider(AppblogAuthorizationProvider)
       .tag(AuthorizationTags.AUTHORIZER);
 
+    const {createBindingFromClass} = require('@loopback/core');
+    this.add(createBindingFromClass(StatisticCountTotalJob));
+    this.add(createBindingFromClass(StatisticCountTodayJob));
     this.projectRoot = __dirname;
     // Customize @loopback/boot Booter Conventions here
     this.bootOptions = {

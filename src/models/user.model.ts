@@ -44,6 +44,12 @@ export class User extends Entity {
   })
   image?: string;
 
+  @property({
+    type: 'date',
+    default: () => new Date(),
+  })
+  createdAt?: Date;
+
   @hasMany(() => Post, {keyTo: 'authorId'})
   posts: Post[];
   // Define well-known properties here
@@ -54,6 +60,9 @@ export class User extends Entity {
 
   constructor(data?: Partial<User>) {
     super(data);
+    if (!this.createdAt) {
+      this.createdAt = new Date();
+    }
   }
 }
 

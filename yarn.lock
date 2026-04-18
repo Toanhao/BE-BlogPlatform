@@ -388,6 +388,16 @@
     debug "^4.4.3"
     tslib "^2.8.1"
 
+"@loopback/cron@^0.13.11":
+  version "0.13.11"
+  resolved "https://registry.npmjs.org/@loopback/cron/-/cron-0.13.11.tgz"
+  integrity sha512-WoeVY9f9fnsNCSC/vLwlG8sS8J1/kRppJtYpUCGYDx4kIorC5/No7/vohKeBD/Y6Dqq2QZFlubu0cD8C82XSSg==
+  dependencies:
+    "@types/debug" "^4.1.13"
+    cron "^2.4.4"
+    debug "^4.4.3"
+    tslib "^2.8.1"
+
 "@loopback/eslint-config@^16.0.1":
   version "16.0.1"
   resolved "https://registry.npmjs.org/@loopback/eslint-config/-/eslint-config-16.0.1.tgz"
@@ -670,7 +680,7 @@
   dependencies:
     "@types/node" "*"
 
-"@types/debug@^4.1.12":
+"@types/debug@^4.1.12", "@types/debug@^4.1.13":
   version "4.1.13"
   resolved "https://registry.npmjs.org/@types/debug/-/debug-4.1.13.tgz"
   integrity sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==
@@ -726,6 +736,11 @@
   version "4.17.24"
   resolved "https://registry.npmjs.org/@types/lodash/-/lodash-4.17.24.tgz"
   integrity sha512-gIW7lQLZbue7lRSWEFql49QJJWThrTFFeIMJdp3eH4tKoxm1OvEPg02rm4wCCSHS0cL3/Fizimb35b7k8atwsQ==
+
+"@types/luxon@~3.3.0":
+  version "3.3.8"
+  resolved "https://registry.npmjs.org/@types/luxon/-/luxon-3.3.8.tgz"
+  integrity sha512-jYvz8UMLDgy3a5SkGJne8H7VA7zPV2Lwohjx0V8V31+SqAjNmurWMkk9cQhfvlcnXWudBpK9xPM1n4rljOcHYQ==
 
 "@types/methods@^1.1.4":
   version "1.1.4"
@@ -1489,6 +1504,14 @@ cors@^2.8.6:
   dependencies:
     object-assign "^4"
     vary "^1"
+
+cron@^2.4.4:
+  version "2.4.4"
+  resolved "https://registry.npmjs.org/cron/-/cron-2.4.4.tgz"
+  integrity sha512-MHlPImXJj3K7x7lyUHjtKEOl69CSlTOWxS89jiFgNkzXfvhVjhMz/nc7/EIfN9vgooZp8XTtXJ1FREdmbyXOiQ==
+  dependencies:
+    "@types/luxon" "~3.3.0"
+    luxon "~3.3.0"
 
 cross-spawn@^7.0.0, cross-spawn@^7.0.2, cross-spawn@^7.0.3, cross-spawn@^7.0.6:
   version "7.0.6"
@@ -2890,6 +2913,11 @@ lru-cache@^5.1.1:
   integrity sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==
   dependencies:
     yallist "^3.0.2"
+
+luxon@~3.3.0:
+  version "3.3.0"
+  resolved "https://registry.npmjs.org/luxon/-/luxon-3.3.0.tgz"
+  integrity sha512-An0UCfG/rSiqtAIiBPO0Y9/zAnHUZxAMiCpTd5h2smgsj7GGmcenvrvww2cqNA8/4A5ZrD1gJpHN2mIHZQF+Mg==
 
 make-dir@^3.0.0, make-dir@^3.0.2:
   version "3.1.0"

@@ -1,0 +1,31 @@
+import {inject} from '@loopback/core';
+import {get, ResponseObject} from '@loopback/rest';
+import {StatisticsService} from '../services/statistics.service';
+
+
+import {CountStatisticsResponseDto} from '../dtos/statistics.dto';
+
+const STATISTICS_COUNT_RESPONSE: ResponseObject = {
+  description: 'Count statistics response',
+  content: {
+    'application/json': {
+      schema: CountStatisticsResponseDto.schema,
+    },
+  },
+};
+
+export class StatisticsController {
+  constructor(
+    @inject('services.StatisticsService') private statisticsService: StatisticsService,
+  ) {}
+
+  @get('/admin/statistics/count', {
+    responses: {
+      '200': STATISTICS_COUNT_RESPONSE,
+    },
+    description: 'Get user/post count statistics (total & today)',
+  })
+  async getCountStatistics() {
+    return this.statisticsService.getCountStatistics();
+  }
+}
