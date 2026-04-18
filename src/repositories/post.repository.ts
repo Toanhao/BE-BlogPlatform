@@ -24,4 +24,5 @@ export class PostRepository extends DefaultCrudRepository<
     this.comments = this.createHasManyRepositoryFactoryFor('comments', commentRepositoryGetter,);
     this.registerInclusionResolver('comments', this.comments.inclusionResolver);
   }
+
 }

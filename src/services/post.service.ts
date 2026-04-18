@@ -61,7 +61,10 @@ export class PostService {
     };
   }
 
-  async createPostForUser(postData: CreatePostDto, userId: string): Promise<Post> {
+  async createPostForUser(
+    postData: CreatePostDto,
+    userId: string,
+  ): Promise<Post> {
     await this.cooldownService.enforceCooldown(userId, 'post', 10);
 
     const excerpt =
@@ -210,4 +213,6 @@ export class PostService {
     await this.invalidateMyPostsCache(String(existingPost.authorId));
     await this.invalidatePostDetailCache(id);
   }
+
+  
 }

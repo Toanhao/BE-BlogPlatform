@@ -19,7 +19,7 @@ import {RestApplication} from '@loopback/rest';
 import {ServiceMixin} from '@loopback/service-proxy';
 import path from 'path';
 import {CronComponent} from '@loopback/cron';
-import {StatisticCountTotalJob, StatisticCountTodayJob} from './jobs';
+import {StatisticCountTotalJob, StatisticCountTodayJob, StatisticTopPostsJob} from './jobs';
 import {MongoDbDataSource} from './datasources';
 import {AppblogBindings} from './keys';
 import {AppblogAuthorizationProvider} from './providers';
@@ -91,6 +91,7 @@ export class AppblogApplication extends BootMixin(
     const {createBindingFromClass} = require('@loopback/core');
     this.add(createBindingFromClass(StatisticCountTotalJob));
     this.add(createBindingFromClass(StatisticCountTodayJob));
+    this.add(createBindingFromClass(StatisticTopPostsJob));
     this.projectRoot = __dirname;
     // Customize @loopback/boot Booter Conventions here
     this.bootOptions = {

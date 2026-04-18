@@ -10,3 +10,19 @@ export class CountStatisticsResponseDto {
     },
   };
 }
+
+
+export class TopPostDto {
+  static schema = {
+    type: 'object' as const,
+    properties: {
+      id: {type: 'string' as const},
+      title: {type: 'string' as const},
+      excerpt: {type: 'string' as const},
+      image: {type: 'string' as const, nullable: true},
+      createdAt: {type: 'string' as const, format: 'date-time' as const},
+      authorId: {type: 'string' as const},
+      commentCount: {type: 'number' as const},
+    },
+  };
+}

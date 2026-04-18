@@ -1,13 +1,21 @@
-import {injectable, inject,  BindingScope} from '@loopback/core';
+import {injectable, inject, BindingScope} from '@loopback/core';
 import {repository} from '@loopback/repository';
-import {StatisticsRepository} from '../repositories';
+import {
+  CommentRepository,
+  PostRepository,
+  StatisticsRepository,
+} from '../repositories';
 import {RedisService} from '../services/redis.service';
-
 @injectable({scope: BindingScope.TRANSIENT})
 export class StatisticsService {
   constructor(
-    @repository(StatisticsRepository) private statisticsRepo: StatisticsRepository,
+    @repository(StatisticsRepository)
+    private statisticsRepo: StatisticsRepository,
     @inject('services.RedisService') private redisService: RedisService,
+    @repository(CommentRepository)
+    private commentRepository: CommentRepository,
+    @repository(PostRepository)
+    private postRepository: PostRepository,
   ) {}
 
   async getCountStatistics() {
@@ -23,8 +31,12 @@ export class StatisticsService {
           updatedAt: total.updatedAt || today.updatedAt,
         };
       }
-      const totalDoc = await this.statisticsRepo.findOne({where: {type: 'total'}});
-      const todayDoc = await this.statisticsRepo.findOne({where: {type: 'today'}});
+      const totalDoc = await this.statisticsRepo.findOne({
+        where: {type: 'total'},
+      });
+      const todayDoc = await this.statisticsRepo.findOne({
+        where: {type: 'today'},
+      });
       if (totalDoc || todayDoc) {
         return {
           totalUser: totalDoc?.totalUser ?? 0,
@@ -44,5 +56,37 @@ export class StatisticsService {
       todayPost: 0,
       updatedAt: null,
     };
+  }
+
+  async getTopPostsByComment(limit: number = 5) {
+    let ids = await this.redisService.getJson<string[]>('statistics:topPosts');
+    if (!Array.isArray(ids) || !ids.length) {
+      const doc = await this.statisticsRepo.findOne({
+        where: {type: 'topPosts'},
+      });
+      ids = doc?.topPostIds ?? [];
+    }
+    ids = ids.slice(0, limit);
+    if (!ids.length) return [];
+    const posts = await this.postRepository.find({
+      where: {id: {inq: ids}},
+      fields: {
+        id: true,
+        title: true,
+        excerpt: true,
+        image: true,
+        createdAt: true,
+        authorId: true,
+      },
+      include: [
+        {
+          relation: 'author',
+          scope: {fields: {username: true}},
+        },
+      ],
+    });
+
+    const postMap = new Map(posts.map(p => [p.id, p]));
+    return ids.map(id => postMap.get(id)).filter(Boolean);
   }
 }

@@ -10,7 +10,7 @@ export class Statistics extends Entity {
   id?: string;
 
   @property({type: 'string', required: true})
-  type: 'total' | 'today';
+  type: 'total' | 'today' | 'topPosts';
 
   @property({type: 'number'})
   totalUser?: number;
@@ -23,6 +23,13 @@ export class Statistics extends Entity {
 
   @property({type: 'number'})
   todayPost?: number;
+
+  @property({
+    type: 'array',
+    itemType: 'string',
+    required: false,
+  })
+  topPostIds?: string[];
 
   @property({type: 'date', required: true})
   updatedAt: Date;

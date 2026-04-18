@@ -5,6 +5,7 @@ import {
   UserRepository,
   PostRepository,
   StatisticsRepository,
+  CommentRepository,
 } from '../repositories';
 import {RedisService} from '../services/redis.service';
 
@@ -22,7 +23,7 @@ export class StatisticCountTotalJob extends CronJob {
       onTick: async () => {
         await this.countTotal();
       },
-      cronTime: '*/1 * * * *',
+      cronTime: '* 0 * * *', // mỗi ngày lúc 00:00
       start: true,
     });
   }
@@ -69,7 +70,7 @@ export class StatisticCountTodayJob extends CronJob {
       onTick: async () => {
         await this.countToday();
       },
-      cronTime: '*/1 * * * *', // mỗi 10 phút
+      cronTime: '* */1 * * *', // mỗi 1 giờ
       start: true,
     });
   }
@@ -101,5 +102,56 @@ export class StatisticCountTodayJob extends CronJob {
       await this.statisticsRepo.create(update);
     }
     await this.redisService.setJson('statistics:today', update, 900);
+  }
+}
+
+@cronJob()
+export class StatisticTopPostsJob extends CronJob {
+  constructor(
+    @repository(CommentRepository) private commentRepo: CommentRepository,
+    @repository(StatisticsRepository)
+    private statisticsRepo: StatisticsRepository,
+    @inject('services.RedisService') private redisService: RedisService,
+  ) {
+    super({
+      name: 'statistic-top-posts-job',
+      onTick: async () => {
+        await this.calcTopPosts();
+      },
+      cronTime: '*/1 * * * *', // mỗi 1 phút
+      start: true,
+    });
+  }
+
+  async calcTopPosts(limit: number = 5) {
+    // Lấy top postId theo số comment
+    const commentCollection =
+      this.commentRepo.dataSource.connector?.collection('Comment');
+    if (!commentCollection) return;
+    const top = await commentCollection
+      .aggregate([
+        {$group: {_id: {$toString: '$postId'}, commentCount: {$sum: 1}}},
+        {$sort: {commentCount: -1}},
+        {$limit: limit},
+      ])
+      .toArray();
+    const topPostIds = top.map((t: any) => t._id);
+    console.log('Top posts by comment:', topPostIds);
+    const now = new Date();
+    const update = {
+      type: 'topPosts' as const,
+      topPostIds,
+      updatedAt: now,
+    };
+    // Upsert theo type: 'topPosts'
+    await this.statisticsRepo.updateAll(update, {type: 'topPosts'});
+    // Nếu chưa có, tạo mới
+    const existed = await this.statisticsRepo.findOne({
+      where: {type: 'topPosts'},
+    });
+    if (!existed) {
+      await this.statisticsRepo.create(update);
+    }
+    await this.redisService.setJson('statistics:topPosts', topPostIds, 3600);
   }
 }
