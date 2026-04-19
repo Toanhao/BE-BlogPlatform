@@ -10,7 +10,7 @@ export class Statistics extends Entity {
   id?: string;
 
   @property({type: 'string', required: true})
-  type: 'total' | 'today' | 'topPosts';
+  type: 'total' | 'today' | 'topPosts' | 'topUsers';
 
   @property({type: 'number'})
   totalUser?: number;
@@ -40,6 +40,23 @@ export class Statistics extends Entity {
     },
   })
   topPosts?: {postId: string; commentCount: number}[];
+
+  @property({
+    type: 'array',
+    itemType: 'object',
+    required: false,
+    jsonSchema: {
+      items: {
+        type: 'object',
+        properties: {
+          userId: {type: 'string'},
+          postCount: {type: 'number'},
+        },
+        required: ['userId', 'postCount'],
+      },
+    },
+  })
+  topUsers?: {userId: string; postCount: number}[];
 
   @property({type: 'date', required: true})
   updatedAt: Date;

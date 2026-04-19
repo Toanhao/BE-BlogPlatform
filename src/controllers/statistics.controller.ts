@@ -52,4 +52,33 @@ export class StatisticsController {
   async getTopPosts() {
     return this.statisticsService.getTopPostsByComment(5);
   }
+
+  @get('/admin/statistics/top-users', {
+    responses: {
+      '200': {
+        description: 'Top users by post count',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: {type: 'string'},
+                  username: {type: 'string'},
+                  email: {type: 'string'},
+                  avatar: {type: 'string'},
+                  postCount: {type: 'number'},
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    description: 'Get top users by post count (all time)',
+  })
+  async getTopUsers() {
+    return this.statisticsService.getTopUsersByPostCount(5);
+  }
 }

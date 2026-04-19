@@ -4,6 +4,7 @@ import {
   CommentRepository,
   PostRepository,
   StatisticsRepository,
+  UserRepository,
 } from '../repositories';
 import {RedisService} from '../services/redis.service';
 @injectable({scope: BindingScope.TRANSIENT})
@@ -16,6 +17,8 @@ export class StatisticsService {
     private commentRepository: CommentRepository,
     @repository(PostRepository)
     private postRepository: PostRepository,
+    @repository(UserRepository)
+    private userRepository: UserRepository,
   ) {}
 
   async getCountStatistics() {
@@ -99,5 +102,40 @@ export class StatisticsService {
         };
       })
       .filter(Boolean);
+  }
+
+  async getTopUsersByPostCount(limit: number = 5) {
+    let topUsers = await this.redisService.getJson<
+      {userId: string; postCount: number}[]
+    >('statistics:topUsers');
+    if (!Array.isArray(topUsers) || !topUsers.length) {
+      const doc = await this.statisticsRepo.findOne({
+        where: {type: 'topUsers'},
+      });
+      topUsers = doc?.topUsers ?? [];
+    }
+    topUsers = topUsers.slice(0, limit);
+    if (!topUsers.length) return [];
+    const userIds = topUsers.map(t => t.userId);
+    const users = await this.userRepository.find({
+      where: {id: {inq: userIds}},
+      fields: {
+        id: true,
+        username: true,
+        email: true,
+        avatar: true,
+      },
+    });
+    const userMap = new Map(users.map((u: any) => [u.id, u]));
+    return topUsers.map(u => {
+      const user = userMap.get(u.userId) || {};
+      return {
+        id: u.userId,
+        postCount: u.postCount,
+        username: user.username || '',
+        email: user.email || '',
+        avatar: user.avatar || '',
+      };
+    });
   }
 }

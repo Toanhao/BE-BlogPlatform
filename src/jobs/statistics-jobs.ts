@@ -135,7 +135,10 @@ export class StatisticTopPostsJob extends CronJob {
         {$limit: limit},
       ])
       .toArray();
-    const topPosts = top.map((t: any) => ({postId: t._id, commentCount: t.commentCount}));
+    const topPosts = top.map((t: any) => ({
+      postId: t._id,
+      commentCount: t.commentCount,
+    }));
     console.log('Top posts by comment:', topPosts);
     const now = new Date();
     const update = {
@@ -153,5 +156,58 @@ export class StatisticTopPostsJob extends CronJob {
       await this.statisticsRepo.create(update);
     }
     await this.redisService.setJson('statistics:topPosts', topPosts, 3600);
+  }
+}
+
+@cronJob()
+export class StatisticTopUsersJob extends CronJob {
+  constructor(
+    @repository(PostRepository) private postRepo: PostRepository,
+    @repository(StatisticsRepository)
+    private statisticsRepo: StatisticsRepository,
+    @inject('services.RedisService') private redisService: RedisService,
+  ) {
+    super({
+      name: 'statistic-top-users-job',
+      onTick: async () => {
+        await this.calcTopUsers();
+      },
+      cronTime: '*/1 * * * *', // mỗi 1 phút
+      start: true,
+    });
+  }
+
+  async calcTopUsers(limit: number = 5) {
+    const postCollection =
+      this.postRepo.dataSource.connector?.collection('Post');
+    if (!postCollection) return;
+    const top = await postCollection
+      .aggregate([
+        {$group: {_id: {$toString: '$authorId'}, postCount: {$sum: 1}}},
+        {$sort: {postCount: -1}},
+        {$limit: limit},
+      ])
+      .toArray();
+    const topUsers = top.map((t: any) => ({
+      userId: t._id,
+      postCount: t.postCount,
+    }));
+    console.log('Top users by post:', topUsers);
+    const now = new Date();
+    const update = {
+      type: 'topUsers' as const,
+      topUsers,
+      updatedAt: now,
+    };
+    // Upsert theo type: 'topUsers'
+    await this.statisticsRepo.updateAll(update, {type: 'topUsers'});
+    // Nếu chưa có, tạo mới
+    const existed = await this.statisticsRepo.findOne({
+      where: {type: 'topUsers'},
+    });
+    if (!existed) {
+      await this.statisticsRepo.create(update);
+    }
+    await this.redisService.setJson('statistics:topUsers', topUsers, 3600);
   }
 }
