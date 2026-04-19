@@ -26,10 +26,20 @@ export class Statistics extends Entity {
 
   @property({
     type: 'array',
-    itemType: 'string',
+    itemType: 'object',
     required: false,
+    jsonSchema: {
+      items: {
+        type: 'object',
+        properties: {
+          postId: {type: 'string'},
+          commentCount: {type: 'number'},
+        },
+        required: ['postId', 'commentCount'],
+      },
+    },
   })
-  topPostIds?: string[];
+  topPosts?: {postId: string; commentCount: number}[];
 
   @property({type: 'date', required: true})
   updatedAt: Date;

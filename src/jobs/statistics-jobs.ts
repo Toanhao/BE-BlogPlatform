@@ -135,12 +135,12 @@ export class StatisticTopPostsJob extends CronJob {
         {$limit: limit},
       ])
       .toArray();
-    const topPostIds = top.map((t: any) => t._id);
-    console.log('Top posts by comment:', topPostIds);
+    const topPosts = top.map((t: any) => ({postId: t._id, commentCount: t.commentCount}));
+    console.log('Top posts by comment:', topPosts);
     const now = new Date();
     const update = {
       type: 'topPosts' as const,
-      topPostIds,
+      topPosts,
       updatedAt: now,
     };
     // Upsert theo type: 'topPosts'
@@ -152,6 +152,6 @@ export class StatisticTopPostsJob extends CronJob {
     if (!existed) {
       await this.statisticsRepo.create(update);
     }
-    await this.redisService.setJson('statistics:topPosts', topPostIds, 3600);
+    await this.redisService.setJson('statistics:topPosts', topPosts, 3600);
   }
 }

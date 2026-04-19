@@ -59,17 +59,20 @@ export class StatisticsService {
   }
 
   async getTopPostsByComment(limit: number = 5) {
-    let ids = await this.redisService.getJson<string[]>('statistics:topPosts');
-    if (!Array.isArray(ids) || !ids.length) {
+    let topPosts = await this.redisService.getJson<
+      {postId: string; commentCount: number}[]
+    >('statistics:topPosts');
+    if (!Array.isArray(topPosts) || !topPosts.length) {
       const doc = await this.statisticsRepo.findOne({
         where: {type: 'topPosts'},
       });
-      ids = doc?.topPostIds ?? [];
+      topPosts = doc?.topPosts ?? [];
     }
-    ids = ids.slice(0, limit);
-    if (!ids.length) return [];
+    topPosts = topPosts.slice(0, limit);
+    if (!topPosts.length) return [];
+    const postIds = topPosts.map(t => t.postId);
     const posts = await this.postRepository.find({
-      where: {id: {inq: ids}},
+      where: {id: {inq: postIds}},
       fields: {
         id: true,
         title: true,
@@ -85,8 +88,16 @@ export class StatisticsService {
         },
       ],
     });
-
     const postMap = new Map(posts.map(p => [p.id, p]));
-    return ids.map(id => postMap.get(id)).filter(Boolean);
+    return topPosts
+      .map(tp => {
+        const post = postMap.get(tp.postId);
+        if (!post) return null;
+        return {
+          ...post,
+          commentCount: tp.commentCount,
+        };
+      })
+      .filter(Boolean);
   }
 }
