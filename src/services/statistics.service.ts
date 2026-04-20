@@ -97,6 +97,42 @@ export class StatisticsService {
     return result.reverse();
   }
 
+  async getPostDailyStats(days: number = 7) {
+    const today = new Date();
+    const result: {date: string; postCount: number; updatedAt: Date}[] = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() - i,
+      );
+      const dateStr = d.toISOString().slice(0, 10);
+      // Ưu tiên lấy từ Redis
+      const cache = await this.redisService.getJson<any>(
+        `statistics:postDaily:${dateStr}`,
+      );
+      if (cache && typeof cache.postCount === 'number') {
+        result.push({
+          date: dateStr,
+          postCount: cache.postCount,
+          updatedAt: cache.updatedAt ? new Date(cache.updatedAt) : d,
+        });
+        continue;
+      }
+      // Fallback DB
+      const stat = await this.statisticsRepo.findOne({
+        where: {type: 'postDaily', date: dateStr},
+      });
+      result.push({
+        date: dateStr,
+        postCount: stat?.postCount ?? 0,
+        updatedAt: stat?.updatedAt ?? d,
+      });
+    }
+    // Trả về mảng theo thứ tự ngày tăng dần (cũ -> mới)
+    return result.reverse();
+  }
+
   async getTopPostsByComment(limit: number = 5) {
     let topPosts = await this.redisService.getJson<
       {postId: string; commentCount: number}[]

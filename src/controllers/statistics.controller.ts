@@ -9,6 +9,16 @@ import {CountStatisticsResponseDto} from '../dtos/statistics.dto';
 import {PostService} from '../services/post.service';
 import {TopPostDto} from '../dtos/statistics.dto';
 
+export class PostDailyStatDto {
+  static schema = {
+    type: 'object' as const,
+    properties: {
+      date: {type: 'string' as const, format: 'date' as const},
+      postCount: {type: 'number' as const},
+      updatedAt: {type: 'string' as const, format: 'date-time' as const},
+    },
+  };
+}
 const STATISTICS_COUNT_RESPONSE: ResponseObject = {
   description: 'Count statistics response',
   content: {
@@ -102,5 +112,27 @@ export class StatisticsController {
   })
   async getUserDailyStats() {
     return this.statisticsService.getUserDailyStats(7);
+  }
+
+
+
+  @get('/admin/statistics/post-daily', {
+    responses: {
+      '200': {
+        description: 'Post daily statistics for 7 days',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: PostDailyStatDto.schema,
+            },
+          },
+        },
+      },
+    },
+    description: 'Get post daily statistics for 7 days',
+  })
+  async getPostDailyStats() {
+    return this.statisticsService.getPostDailyStats(7);
   }
 }

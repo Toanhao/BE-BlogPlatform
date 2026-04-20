@@ -25,6 +25,7 @@ import {
   StatisticTopPostsJob,
   StatisticTopUsersJob,
   StatisticUserDailyJob,
+  StatisticPostDailyJob,
 } from './jobs';
 import {MongoDbDataSource} from './datasources';
 import {AppblogBindings} from './keys';
@@ -100,6 +101,7 @@ export class AppblogApplication extends BootMixin(
     this.add(createBindingFromClass(StatisticTopPostsJob));
     this.add(createBindingFromClass(StatisticTopUsersJob));
     this.add(createBindingFromClass(StatisticUserDailyJob));
+    this.add(createBindingFromClass(StatisticPostDailyJob));
     this.projectRoot = __dirname;
     // Customize @loopback/boot Booter Conventions here
     this.bootOptions = {
