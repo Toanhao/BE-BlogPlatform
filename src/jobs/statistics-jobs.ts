@@ -106,6 +106,64 @@ export class StatisticCountTodayJob extends CronJob {
 }
 
 @cronJob()
+export class StatisticUserDailyJob extends CronJob {
+  constructor(
+    @repository(UserRepository) private userRepo: UserRepository,
+    @repository(StatisticsRepository)
+    private statisticsRepo: StatisticsRepository,
+    @inject('services.RedisService') private redisService: RedisService,
+  ) {
+    super({
+      name: 'statistic-user-daily-job',
+      onTick: async () => {
+        await this.countUserDaily();
+      },
+      cronTime: '*/1 * * * *', // mỗi 1 phút
+      start: true,
+    });
+  }
+
+  async countUserDaily() {
+    const now = new Date();
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const endOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+    );
+    const userCount = await this.userRepo.count({
+      createdAt: {gte: startOfDay, lt: endOfDay},
+    });
+    const dateStr = startOfDay.toISOString().slice(0, 10); // yyyy-mm-dd
+    const update = {
+      type: 'userDaily' as const,
+      date: dateStr,
+      userCount: userCount.count,
+      updatedAt: now,
+    };
+    await this.statisticsRepo.updateAll(update, {
+      type: 'userDaily',
+      date: dateStr,
+    });
+    const existed = await this.statisticsRepo.findOne({
+      where: {type: 'userDaily', date: dateStr},
+    });
+    if (!existed) {
+      await this.statisticsRepo.create(update);
+    }
+    await this.redisService.setJson(
+      `statistics:userDaily:${dateStr}`,
+      update,
+      172800,
+    );
+  }
+}
+
+@cronJob()
 export class StatisticTopPostsJob extends CronJob {
   constructor(
     @repository(CommentRepository) private commentRepo: CommentRepository,

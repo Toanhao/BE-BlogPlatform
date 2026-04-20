@@ -1,3 +1,5 @@
+import {UserDailyStatDto} from '../dtos/statistics.dto';
+
 import {inject} from '@loopback/core';
 import {get, ResponseObject} from '@loopback/rest';
 import {StatisticsService} from '../services/statistics.service';
@@ -80,5 +82,25 @@ export class StatisticsController {
   })
   async getTopUsers() {
     return this.statisticsService.getTopUsersByPostCount(5);
+  }
+
+  @get('/admin/statistics/user-daily', {
+    responses: {
+      '200': {
+        description: 'User daily statistics for 7 days',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: UserDailyStatDto.schema,
+            },
+          },
+        },
+      },
+    },
+    description: 'Get user daily statistics for 7 days',
+  })
+  async getUserDailyStats() {
+    return this.statisticsService.getUserDailyStats(7);
   }
 }

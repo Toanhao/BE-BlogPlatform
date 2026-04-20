@@ -1,3 +1,14 @@
+
+export class UserDailyStatDto {
+  static schema = {
+    type: 'object' as const,
+    properties: {
+      date: {type: 'string' as const, format: 'date' as const},
+      userCount: {type: 'number' as const},
+      updatedAt: {type: 'string' as const, format: 'date-time' as const},
+    },
+  };
+}
 export class CountStatisticsResponseDto {
   static schema = {
     type: 'object' as const,

@@ -7,6 +7,7 @@ import {
   UserRepository,
 } from '../repositories';
 import {RedisService} from '../services/redis.service';
+
 @injectable({scope: BindingScope.TRANSIENT})
 export class StatisticsService {
   constructor(
@@ -59,6 +60,41 @@ export class StatisticsService {
       todayPost: 0,
       updatedAt: null,
     };
+  }
+
+  async getUserDailyStats(days: number = 7) {
+    const today = new Date();
+    const result: {date: string; userCount: number; updatedAt: Date}[] = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() - i,
+      );
+      const dateStr = d.toISOString().slice(0, 10);
+      // Ưu tiên lấy từ Redis
+      const cache = await this.redisService.getJson<any>(
+        `statistics:userDaily:${dateStr}`,
+      );
+      if (cache && typeof cache.userCount === 'number') {
+        result.push({
+          date: dateStr,
+          userCount: cache.userCount,
+          updatedAt: cache.updatedAt ? new Date(cache.updatedAt) : d,
+        });
+        continue;
+      }
+      // Fallback DB
+      const stat = await this.statisticsRepo.findOne({
+        where: {type: 'userDaily', date: dateStr},
+      });
+      result.push({
+        date: dateStr,
+        userCount: stat?.userCount ?? 0,
+        updatedAt: stat?.updatedAt ?? d,
+      });
+    }
+    return result.reverse();
   }
 
   async getTopPostsByComment(limit: number = 5) {
